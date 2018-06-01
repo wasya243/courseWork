@@ -114,7 +114,7 @@ function createReportEntriesByRange(start, end, schedule) {
 }
 
 function createReportEntryByEvent(event, schedule) {
-    const eventName = getEventNameByTime(event.date);
+    const eventName = getEventNameByTime(event.date, schedule);
 
     const reports = [];
 
@@ -125,8 +125,8 @@ function createReportEntryByEvent(event, schedule) {
     } else if(eventName === 'AtWork') {
         // check at what part of the day certain employee came to work
         const atWorkRecord = fallsWithinFirstPartOfWorkingTime(event.date, schedule)
-            ? createRecord(event.date, schedule.workDayBeginning, 'AtWork')
-            : createRecord(event.date, schedule.workDayEnding, 'AtWork');
+            ? createRecord(schedule.workDayBeginning, event.date, 'Absence')
+            : createRecord(event.date, schedule.workDayEnding, 'Absence');
         reports.push(atWorkRecord);
     } else {
         // daily break

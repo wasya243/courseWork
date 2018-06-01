@@ -5,19 +5,19 @@ module.exports = (sequelize, type) => {
             allowNull: false,
         },
         start_work_hour: {
-            type: type.INTEGER,
+            type: type.DATE,
             allowNull: false,
         },
         end_work_hour: {
-            type: type.INTEGER,
+            type: type.DATE,
             allowNull: false,
         },
         start_break_hour: {
-            type: type.INTEGER,
+            type: type.DATE,
             allowNull: false,
         },
         end_break_hour: {
-            type: type.INTEGER,
+            type: type.DATE,
             allowNull: false,
         },
         is_holiday: {

@@ -101,7 +101,8 @@ Schedule.hasMany(Team, { foreignKey: { name: 'schedule_id' } });
 //--i-am-not-sure-about-on-cascade
 Schedule.hasMany(ScheduleDetails, { foreignKey: { name: 'schedule_id', allowNull: false }, onDelete: 'CASCADE' } );
 ScheduleDetails.belongsTo(Schedule, { foreignKey: { name: 'schedule_id' } });
-// Team.hasMany(Employee, { foreignKey: { allowNull: false }, onDelete: 'CASCADE' });
+Team.hasMany(Employee, { foreignKey: { name: 'team_id', allowNull: false }, onDelete: 'CASCADE' });
+Employee.belongsTo(Team);
 //--i-am-not-sure-about-on-cascade
 JobTitle.hasMany(Employee, { foreignKey: { name: 'title_id', allowNull: false }, onDelete: 'CASCADE' } );
 Employee.belongsTo(JobTitle, { foreignKey: { name: 'title_id' } });

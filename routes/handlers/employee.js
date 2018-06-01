@@ -1,4 +1,4 @@
-const { Employee, InsOuts, db, ScheduleDetails, Schedule, Team } = require('../../db/models');
+const { Employee, InsOuts, db, ScheduleDetails, Schedule, Team, ScheduleExceptions } = require('../../db/models');
 const { createReportEntryByEvent, createReportEntriesByRange, remapScheduleObject } = require('../../util');
 
 const employeeListGET = async (req, res, next) => {
@@ -90,12 +90,43 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
         const start = new Date(`${day} 00:00:00`);
         const end = new Date(`${day} 23:59:59`);
 
-
-        const schedule = await ScheduleDetails.find({
+        const employee = await Employee.find({
             where: {
+                id,
+            }
+        });
+
+        const team = await Team.find({
+            where: {
+                id: employee.team_id,
+            }
+        });
+
+        const schedule = await Schedule.find({
+            where: {
+                id: team.schedule_id,
+            }
+        });
+
+        let scheduleDetails = await ScheduleDetails.find({
+            where: {
+                schedule_id: schedule.id,
                 work_date: day,
             }
         });
+
+        const scheduleExceptions = await ScheduleExceptions.find({
+            where: {
+                employee_id: id,
+                schedule_details_id: scheduleDetails.id,
+                work_date: day,
+            }
+        });
+
+        // check if we found something
+        if(scheduleExceptions) {
+            scheduleDetails = scheduleExceptions;
+        }
 
         // all records during this day by given user
         const inOutRecords = await InsOuts.findAll({
@@ -107,10 +138,10 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
             }
         });
 
-        const remappedSchedule = remapScheduleObject(schedule);
+        const remappedSchedule = remapScheduleObject(scheduleDetails);
 
         // avoid inOutRecords[0] error
-        if (inOutRecords.length) {
+        if (inOutRecords.length === 0) {
             return res.send([]);
         }
 
@@ -122,7 +153,7 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
             // handle single in
             result = result.concat(createReportEntryByEvent(inOutRecords[0], remappedSchedule));
         } else {
-            for(let i = 0; i < inOutRecords.length - 1; i+= 2) {
+            for(let i = 0; i < inOutRecords.length - 2; i+= 2) {
                 const inRecord = inOutRecords[i];
                 const outRecord =inOutRecords[i + 1];
                 result = result.concat(createReportEntriesByRange(inRecord.date, outRecord.date, remappedSchedule));
@@ -140,7 +171,49 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
     }
 };
 
+const employeeCurrentStatusGET = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        //find a better way to do this
+        const currentDate = new Date();
+        const currentYear = currentDate.getUTCFullYear();
+        const currentMonth = currentDate.getUTCMonth() + 1;
+        const currentDay = currentDate.getUTCDate();
+
+        //find a better way to do this
+        const start = new Date(`${currentYear} ${currentMonth} ${currentDay} 00:00:00`);
+        const end = new Date(`${currentYear} ${currentMonth} ${currentDay} 23:59:59`);
+
+        const inOutRecords = await InsOuts.findAll({
+            where: {
+                employee_id: id,
+                date: {
+                    $between: [ start, end ]
+                }
+            },
+
+        });
+
+        //I had not time, so in future is should be done in more good looking way
+        let status = {};
+
+        if(inOutRecords.length === 0) {
+            status.message = 'Not At Work'
+        } else {
+            const lastEntry = inOutRecords[0];
+            lastEntry.type === 'In'
+                ? status.message = 'At work'
+                : status.message = 'Not At Work';
+        }
+
+        res.send(status);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
+    employeeCurrentStatusGET,
     employeeStatisticsByDayGET,
     employeeByIdDelete,
     employeeByIdGET,

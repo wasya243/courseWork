@@ -15,4 +15,6 @@ router.get('/employees/:id/in-out-records', employee.inOutRecordsByUserIdGET);
 
 router.get('/employees/:id/daily-statistics', employee.employeeStatisticsByDayGET);
 
+router.get('/employees/:id/current-status', employee.employeeCurrentStatusGET);
+
 module.exports = router;
