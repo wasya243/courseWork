@@ -187,7 +187,7 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
         } else {
             // a little bit of magic
             result = getReportByMultipleRecords(inOutRecords, getControlPoints, getRangeNameByTime, createRecord, remappedSchedule);
-            result.notAbscenceRanges = processReports(result.notAbscenceRanges, createRecord, 'DailyBreak', remappedSchedule);
+            result.notAbsenceRanges = processReports(result.notAbsenceRanges, createRecord, 'DailyBreak', remappedSchedule);
         }
 
         res.send(result);

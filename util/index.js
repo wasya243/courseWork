@@ -7,28 +7,39 @@
 //     workDayEnding: 18
 // };
 
+function getAverageDate(date1, date2) {
+    let date1_ms = date1.getTime();
+    const date2_ms = date2.getTime();
+
+    const difference = (date2_ms - date1_ms) / 2;
+
+    date1_ms += difference;
+
+    return new Date(date1_ms);
+}
+
 function getControlPoints(inRecord, outRecord, workSchedule) {
     let controlPoints = Object.keys(workSchedule).map(prop => workSchedule[prop]);
 
-    controlPoints = controlPoints.concat([inRecord.time, outRecord.time]);
+    controlPoints = controlPoints.concat([inRecord.date, outRecord.date]);
     controlPoints.sort((a, b) => a - b);
 
-    const start = controlPoints.indexOf(inRecord.time);
-    const end = controlPoints.indexOf(outRecord.time);
+    const start = controlPoints.indexOf(inRecord.date);
+    const end = controlPoints.indexOf(outRecord.date);
 
     return controlPoints.slice(start, end + 1);
 }
 
-function getControlPointsBySingleRecord(record, workSchedule) {
+function getControlPointsBySingleRecord(record, workSchedule, isFirst) {
     let controlPoints = Object.keys(workSchedule).map(prop => workSchedule[prop]);
 
-    controlPoints = controlPoints.concat([record.time]);
+    controlPoints = controlPoints.concat([record.date]);
     controlPoints.sort((a, b) => a - b);
 
-    const start = 0;
-    const end = controlPoints.indexOf(record.time);
+    const start = isFirst ? 0 : controlPoints.indexOf(record.date);
+    const end = isFirst ? controlPoints.indexOf(record.date) + 1 : controlPoints.length;
 
-    return controlPoints.slice(start, end + 1);
+    return controlPoints.slice(start, end);
 }
 
 function getRangeNameByTime(time, schedule) {
@@ -79,7 +90,7 @@ function getReportByMultipleRecords(records, getControlPointsFunc, getRangeNameB
         for(let j = 0; j < currentControlPoints.length - 1; j++) {
             const currentPoint = currentControlPoints[j];
             const nextPoint = currentControlPoints[j + 1];
-            const eventName = getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule);
+            const eventName = getRangeNameByTimeFunc(getAverageDate(currentPoint, nextPoint), schedule);
             if(eventName === 'DailyBreak') {
                 notAbsenceRanges.push(createRecordFunc(schedule.dailyBreakBeginning, schedule.dailyBreakEnding, eventName));
             }
@@ -88,7 +99,8 @@ function getReportByMultipleRecords(records, getControlPointsFunc, getRangeNameB
     }
 
     // a little bit of magic
-    absenceRanges = absenceRanges.concat(getReportBySingleRecord(records[0], getControlPointsBySingleRecord,  getRangeNameByTime, createRecord, schedule));
+    absenceRanges = absenceRanges.concat(getReportBySingleRecord(records[0], getControlPointsBySingleRecord,  getRangeNameByTime, createRecord, schedule, true));
+    absenceRanges = absenceRanges.concat(getReportBySingleRecord(records[records.length - 1], getControlPointsBySingleRecord,  getRangeNameByTime, createRecord, schedule, false));
 
     let length = records.length % 2 === 1 ? records.length : records.length - 1;
 
@@ -97,7 +109,7 @@ function getReportByMultipleRecords(records, getControlPointsFunc, getRangeNameB
         for(let j = 0; j < currentControlPoints.length - 1; j++) {
             const currentPoint = currentControlPoints[j];
             const nextPoint = currentControlPoints[j + 1];
-            if(getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule) === 'AtWork') {
+            if(getRangeNameByTimeFunc(getAverageDate(currentPoint, nextPoint), schedule) === 'AtWork') {
                 absenceRanges.push(createRecordFunc(currentPoint, nextPoint, 'Absence'));
             }
 
@@ -110,14 +122,14 @@ function getReportByMultipleRecords(records, getControlPointsFunc, getRangeNameB
     }
 }
 
-function getReportBySingleRecord(record, getControlPointsBySingleRecordFunc, getRangeNameByTimeFunc, createRecordFunc, schedule) {
+function getReportBySingleRecord(record, getControlPointsBySingleRecordFunc, getRangeNameByTimeFunc, createRecordFunc, schedule, isFirst) {
     let ranges = [];
-    const currentControlPoints = getControlPointsBySingleRecordFunc(record, schedule);
+    const currentControlPoints = getControlPointsBySingleRecordFunc(record, schedule, isFirst);
 
     for(let i = 0; i < currentControlPoints.length - 1; i++) {
         const currentPoint = currentControlPoints[i];
         const nextPoint = currentControlPoints[i + 1];
-        const eventName = getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule);
+        const eventName = getRangeNameByTimeFunc(getAverageDate(currentPoint, nextPoint), schedule);
         if(eventName === 'AtWork') {
             ranges.push(createRecordFunc(currentPoint, nextPoint, 'Absence'));
         } else {
@@ -129,13 +141,12 @@ function getReportBySingleRecord(record, getControlPointsBySingleRecordFunc, get
 }
 
 // a little bit of magic
-function processReports(notAbscenceRanges, createRecordFunc, type, schedule) {
+function processReports(notAbscenceRanges = [], createRecordFunc, type, schedule) {
     const result = notAbscenceRanges.filter(item => item.type !== type);
     result.push(createRecordFunc(schedule.dailyBreakBeginning, schedule.dailyBreakEnding, type));
 
     return result;
 }
-
 // if(records.length === 1) {
 //     getReportBySingleRecord(records[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule);
 // } else {
