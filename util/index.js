@@ -1,44 +1,37 @@
-function fallsWithinFirstPartOfWorkingTime (time, schedule) {
-    return time < schedule.dailyBreakBeginning && time >= schedule.workDayBeginning;
+// const records = [{ time: 7 , type: 'In' }, { time: 7.55 , type: 'Out' }, { time: 8.15 , type: 'In' }, { time: 13.10 , type: 'Out' }, { time: 13.55 , type: 'In' }, { time: 14.55 , type: 'Out' }, { time: 16.10 , type: 'In' },{ time: 17.10 , type: 'Out' }];
+//
+// const schedule = {
+//     workDayBeginning: 8,
+//     dailyBreakBeginning: 13,
+//     dailyBreakEnding: 14,
+//     workDayEnding: 18
+// };
+
+function getControlPoints(inRecord, outRecord, workSchedule) {
+    let controlPoints = Object.keys(workSchedule).map(prop => workSchedule[prop]);
+
+    controlPoints = controlPoints.concat([inRecord.time, outRecord.time]);
+    controlPoints.sort((a, b) => a - b);
+
+    const start = controlPoints.indexOf(inRecord.time);
+    const end = controlPoints.indexOf(outRecord.time);
+
+    return controlPoints.slice(start, end + 1);
 }
 
-function fallsWithinSecondPartOfWorkingTime(time, schedule) {
-    return time > schedule.dailyBreakEnding && time <= schedule.workDayEnding;
+function getControlPointsBySingleRecord(record, workSchedule) {
+    let controlPoints = Object.keys(workSchedule).map(prop => workSchedule[prop]);
+
+    controlPoints = controlPoints.concat([record.time]);
+    controlPoints.sort((a, b) => a - b);
+
+    const start = 0;
+    const end = controlPoints.indexOf(record.time);
+
+    return controlPoints.slice(start, end + 1);
 }
 
-function fallsWithinWorkingTime (time, schedule) {
-    return fallsWithinFirstPartOfWorkingTime(time, schedule) || fallsWithinSecondPartOfWorkingTime(time, schedule);
-}
-
-function fallsWithinDailyBreakTime (time, schedule) {
-    return time >= schedule.dailyBreakBeginning && time <= schedule.dailyBreakEnding;
-}
-
-function fallsWithinNotWorkingTime (time, schedule) {
-    return !(fallsWithinWorkingTime(time, schedule) || fallsWithinDailyBreakTime(time, schedule));
-}
-
-function containsDailyBreak(start, end, schedule) {
-    return start < schedule.dailyBreakBeginning && end > schedule.dailyBreakEnding;
-}
-
-function createRecord(start, end, type) {
-    return { start, end, type };
-}
-
-function cutOutDailyBreak(start, end, schedule) {
-    const absenceBeforeBreak = {
-        start,
-        end: schedule.dailyBreakBeginning,
-    };
-    const absenceAfterBreak = {
-        start: schedule.dailyBreakEnding,
-        end
-    };
-    return [absenceBeforeBreak, absenceAfterBreak];
-}
-
-function getEventNameByTime(time, schedule) {
+function getRangeNameByTime(time, schedule) {
     let eventName;
     if (fallsWithinWorkingTime(time, schedule)) {
         eventName = 'AtWork';
@@ -51,90 +44,106 @@ function getEventNameByTime(time, schedule) {
     return eventName;
 }
 
-function createReportEntriesByRange(start, end, schedule) {
-    const firstEventName = getEventNameByTime(start, schedule);
-    const secondEventName = getEventNameByTime(end, schedule);
+function fallsWithinFirstPartOfWorkingTime(time, schedule) {
+    return time < schedule.dailyBreakBeginning && time >= schedule.workDayBeginning;
+}
 
-    const reports = [];
+function fallsWithinSecondPartOfWorkingTime(time, schedule) {
+    return time > schedule.dailyBreakEnding && time <= schedule.workDayEnding;
+}
 
-    if(firstEventName === 'NotWorkingTime' && secondEventName === 'AtWork') {
-        reports.push(createRecord(schedule.workDayBeginning, end, secondEventName));
-    }
+function fallsWithinWorkingTime(time, schedule) {
+    return fallsWithinFirstPartOfWorkingTime(time, schedule) || fallsWithinSecondPartOfWorkingTime(time, schedule);
 
-    else if (firstEventName === 'AtWork' && secondEventName === 'AtWork') {
-        if (containsDailyBreak(start, end, schedule)) {
-            reports.push(cutOutDailyBreak(start, end, schedule).map(item => { return { ...item, type: firstEventName } }));
+}
+
+function fallsWithinDailyBreakTime(time, schedule) {
+    return time >= schedule.dailyBreakBeginning && time <= schedule.dailyBreakEnding;
+}
+
+function fallsWithinNotWorkingTime(time, schedule) {
+    return !((fallsWithinWorkingTime(time, schedule) || fallsWithinDailyBreakTime(time, schedule)));
+}
+
+function createRecord(start, end, type) {
+    return { start, end, type };
+}
+
+function getReportByMultipleRecords(records, getControlPointsFunc, getRangeNameByTimeFunc, createRecordFunc, schedule) {
+    let currentControlPoints = [];
+    let notAbsenceRanges = [];
+    let absenceRanges = [];
+
+    for(let i = 0; i < records.length - records.length % 2 - 1; i+=2) {
+        currentControlPoints = getControlPointsFunc(records[i], records[i + 1], schedule);
+        for(let j = 0; j < currentControlPoints.length - 1; j++) {
+            const currentPoint = currentControlPoints[j];
+            const nextPoint = currentControlPoints[j + 1];
+            const eventName = getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule);
+            if(eventName === 'DailyBreak') {
+                notAbsenceRanges.push(createRecordFunc(schedule.dailyBreakBeginning, schedule.dailyBreakEnding, eventName));
+            }
+            notAbsenceRanges.push(createRecordFunc(currentPoint, nextPoint, eventName));
         }
-        const atWorkRecord = createRecord(start, end, firstEventName);
-        reports.push(atWorkRecord);
     }
 
-    else if (firstEventName === 'AtWork' && secondEventName === 'DailyBreak') {
-        const atWorkRecord = createRecord(start, schedule.dailyBreakBeginning, firstEventName);
-        reports.push(atWorkRecord);
+    // a little bit of magic
+    absenceRanges = absenceRanges.concat(getReportBySingleRecord(records[0], getControlPointsBySingleRecord,  getRangeNameByTime, createRecord, schedule));
+
+    let length = records.length % 2 === 1 ? records.length : records.length - 1;
+
+    for(let i = 1; i < length; i+=2) {
+        currentControlPoints = getControlPointsFunc(records[i], records[i + 1], schedule);
+        for(let j = 0; j < currentControlPoints.length - 1; j++) {
+            const currentPoint = currentControlPoints[j];
+            const nextPoint = currentControlPoints[j + 1];
+            if(getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule) === 'AtWork') {
+                absenceRanges.push(createRecordFunc(currentPoint, nextPoint, 'Absence'));
+            }
+
+        }
     }
 
-    else if (firstEventName === 'DailyBreak' && secondEventName === 'AtWork') {
-        const atWorkRecord = createRecord(schedule.dailyBreakEnding, end, secondEventName);
-        reports.push(atWorkRecord);
+    return {
+        absenceRanges,
+        notAbsenceRanges
     }
-
-    else if (firstEventName === 'NotWorkingTime' && secondEventName === 'AtWork') {
-        const notWorkingTimeRecord = createRecord(start, schedule.workDayBeginning, firstEventName);
-        const atWorkRecord = createRecord(schedule.workDayBeginning, end, secondEventName);
-        reports.push(atWorkRecord, notWorkingTimeRecord);
-    }
-
-    else if (firstEventName === 'AtWork' && secondEventName === 'NotWorkingTime') {
-        const notWorkingTimeRecord = createRecord(schedule.workDayEnding, end, secondEventName);
-        const atWorkRecord = createRecord(start, schedule.workDayEnding, firstEventName);
-        reports.push(atWorkRecord, notWorkingTimeRecord);
-    }
-
-    else if (firstEventName === 'NotWorkingTime' && secondEventName === 'NotWorkingTime') {
-        const notWorkingTimeRecord = createRecord(start, end, firstEventName);
-        reports.push(notWorkingTimeRecord);
-    }
-
-    else if (firstEventName === 'DailyBreak' && secondEventName === 'NotWorkingTime') {
-        const atWorkRecord = createRecord(schedule.dailyBreakEnding, schedule.workDayEnding, 'AtWork');
-        const notWorkingTimeRecord = createRecord(schedule.workDayEnding, end, secondEventName);
-        reports.push(atWorkRecord);
-        reports.push(notWorkingTimeRecord);
-    }
-
-    else if(firstEventName === 'NotWorkingTime' && secondEventName === 'DailyBreak') {
-        const notWorkingTimeRecord = createRecord(start, schedule.dailyBreakBeginning, firstEventName);
-        const atWorkRecord = createRecord(schedule.dailyBreakBeginning, schedule.dailyBreakBeginning, 'AtWork');
-        reports.push(atWorkRecord);
-        reports.push(notWorkingTimeRecord);
-    }
-
-    return reports;
 }
 
-function createReportEntryByEvent(event, schedule) {
-    const eventName = getEventNameByTime(event.date, schedule);
+function getReportBySingleRecord(record, getControlPointsBySingleRecordFunc, getRangeNameByTimeFunc, createRecordFunc, schedule) {
+    let ranges = [];
+    const currentControlPoints = getControlPointsBySingleRecordFunc(record, schedule);
 
-    const reports = [];
-
-    if(eventName === 'NotWorkingTime') {
-        // I guess it is illegal to go the job after work time ending
-        const notWorkingTimeRecord = createRecord(event.date, schedule.workDayBeginning, 'NotWorkingTime');
-        reports.push(notWorkingTimeRecord);
-    } else if(eventName === 'AtWork') {
-        // check at what part of the day certain employee came to work
-        const atWorkRecord = fallsWithinFirstPartOfWorkingTime(event.date, schedule)
-            ? createRecord(schedule.workDayBeginning, event.date, 'Absence')
-            : createRecord(event.date, schedule.workDayEnding, 'Absence');
-        reports.push(atWorkRecord);
-    } else {
-        // daily break
-        // ...
+    for(let i = 0; i < currentControlPoints.length - 1; i++) {
+        const currentPoint = currentControlPoints[i];
+        const nextPoint = currentControlPoints[i + 1];
+        const eventName = getRangeNameByTimeFunc((currentPoint + nextPoint) / 2, schedule);
+        if(eventName === 'AtWork') {
+            ranges.push(createRecordFunc(currentPoint, nextPoint, 'Absence'));
+        } else {
+            ranges.push(createRecordFunc(currentPoint, nextPoint, eventName));
+        }
     }
 
-    return reports;
+    return ranges;
 }
+
+// a little bit of magic
+function processReports(notAbscenceRanges, createRecordFunc, type, schedule) {
+    const result = notAbscenceRanges.filter(item => item.type !== type);
+    result.push(createRecordFunc(schedule.dailyBreakBeginning, schedule.dailyBreakEnding, type));
+
+    return result;
+}
+
+// if(records.length === 1) {
+//     getReportBySingleRecord(records[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule);
+// } else {
+//     // a little bit of magic
+//     let result = getReportByMultipleRecords(records, getControlPoints, getRangeNameByTime, createRecord, schedule);
+//     result.notAbscenceRanges = processReports(result.notAbscenceRanges,  createRecord, 'DailyBreak', schedule);
+//     console.log(result);
+// }
 
 function remapScheduleObject(databaseSchedule) {
     const remappedSchedule = {};
@@ -147,26 +156,14 @@ function remapScheduleObject(databaseSchedule) {
     return remappedSchedule;
 }
 
+
 module.exports = {
-    createReportEntryByEvent,
-    createReportEntriesByRange,
+    getReportBySingleRecord,
+    getReportByMultipleRecords,
+    processReports,
+    createRecord,
+    getRangeNameByTime,
+    getControlPoints,
+    getControlPointsBySingleRecord,
     remapScheduleObject,
 };
-
-// var fullPairs = insAndOuts.length / 2;
-// var lastInRecord = insAndOuts.length % 2;
-// var result = [];
-// if(fullPairs < 1) {
-//     // handle single in
-//     result = result.concat(createReportEntryByEvent(insAndOuts[0], schedule));
-// } else {
-//     for(let i = 0; i < insAndOuts.length - 1; i+= 2) {
-//         const inRecord = insAndOuts[i];
-//         const outRecord =insAndOuts[i + 1];
-//         result = result.concat(createReportEntriesByRange(inRecord.time, outRecord.time, schedule));
-//     }
-//     // plus handle single in (the last one);
-//     if (lastInRecord !== 0) {
-//         result = result.concat(createReportEntryByEvent(insAndOuts[insAndOuts.length - 1], schedule));
-//     }
-// }

@@ -1,5 +1,14 @@
 const { Employee, InsOuts, db, ScheduleDetails, Schedule, Team, ScheduleExceptions } = require('../../db/models');
-const { createReportEntryByEvent, createReportEntriesByRange, remapScheduleObject } = require('../../util');
+const {
+    createRecord,
+    getControlPoints,
+    getRangeNameByTime,
+    getReportByMultipleRecords,
+    getReportBySingleRecord,
+    processReports,
+    getControlPointsBySingleRecord,
+    remapScheduleObject,
+} = require('../../util');
 
 const employeeListGET = async (req, res, next) => {
     try {
@@ -146,22 +155,15 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
         }
 
         // do this steps only if there are more than 0 records
-        const fullPairs = inOutRecords.length / 2;
-        const lastInRecord = inOutRecords.length % 2;
+
         let result = [];
-        if(fullPairs < 1) {
-            // handle single in
-            result = result.concat(createReportEntryByEvent(inOutRecords[0], remappedSchedule));
+
+        if(inOutRecords.length === 1) {
+            result = getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, remappedSchedule);
         } else {
-            for(let i = 0; i < inOutRecords.length - 2; i+= 2) {
-                const inRecord = inOutRecords[i];
-                const outRecord =inOutRecords[i + 1];
-                result = result.concat(createReportEntriesByRange(inRecord.date, outRecord.date, remappedSchedule));
-            }
-            // plus handle single in (the last one);
-            if (lastInRecord !== 0) {
-                result = result.concat(createReportEntryByEvent(inOutRecords[inOutRecords.length - 1], remappedSchedule));
-            }
+            // a little bit of magic
+            result = getReportByMultipleRecords(inOutRecords, getControlPoints, getRangeNameByTime, createRecord, remappedSchedule);
+            result.notAbscenceRanges = processReports(result.notAbscenceRanges, createRecord, 'DailyBreak', remappedSchedule);
         }
 
         res.send(result);
