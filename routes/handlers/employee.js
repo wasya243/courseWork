@@ -133,6 +133,23 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
             });
         } else {
             // find personal schedule
+            // ps = personal schedule
+            const ps = await PersonalSchedules.find({
+                where: {
+                    employee_id: id,
+                }
+            });
+            schedule = await Schedule.find({
+                where: {
+                    id: ps.schedule_id,
+                }
+            });
+            personalSchedule = await ScheduleDetails.find({
+                where: {
+                    schedule_id: schedule.id,
+                    work_date: day,
+                }
+            });
         }
 
         // check if we found something
