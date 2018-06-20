@@ -7,6 +7,7 @@ const jobTitles = require('./jobTitles');
 const employee = require('./employee');
 const scheduleExceptions = require('./scheduleExceptions');
 const organization = require('./organization');
+const personalSchedules = require('./personalSchedules');
 
 const applyRoutes = (app) => {
     app.use('/', schedule);
@@ -18,6 +19,7 @@ const applyRoutes = (app) => {
     app.use('/', employee);
     app.use('/', scheduleExceptions);
     app.use('/', organization);
+    app.use('/', personalSchedules);
 };
 
 module.exports = {
@@ -31,4 +33,5 @@ module.exports = {
     employee,
     scheduleExceptions,
     organization,
+    personalSchedules,
 };
