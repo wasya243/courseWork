@@ -61,7 +61,7 @@ const employeeListByTeamIdGet = async (req, res, next) => {
     try {
         const { id } = req.params;
         const listOfEmployees = await Employee.findAll({
-            where: { teamId: id }
+            where: { team_id: id }
         });
         res.send(listOfEmployees);
     } catch (error) {
