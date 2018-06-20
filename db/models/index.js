@@ -38,6 +38,19 @@ const Team = db.define('teams', {
 //-------------------------------------->
 
 //---through-model---------------------->
+const PersonalSchedules = db.define('personalSchedules', {}, {
+    indexes: [
+        {
+            unique: true,
+            fields: ['employee_id']
+        }
+    ]
+}, {
+    underscored: true
+});
+//-------------------------------------->
+
+//---through-model---------------------->
 const ScheduleExceptions = db.define('scheduleExceptions', {
     work_date: {
         type: Sequelize.DATE,
@@ -97,6 +110,8 @@ const ScheduleExceptions = db.define('scheduleExceptions', {
 // i wrote this way instead of what you can see above as it is the only way to allow null values for foreign key
 Department.hasMany(Team, { foreignKey: { name: 'department_id', allowNull: false }, onDelete: 'CASCADE' });
 Team.belongsTo(Schedule, { foreignKey: { name: 'schedule_id' } });
+Schedule.hasMany(PersonalSchedules, { foreignKey: { name: 'schedule_id', allowNull: false } });
+PersonalSchedules.belongsTo(Employee, { foreignKey: { name: 'employee_id', allowNull: false } });
 Schedule.hasMany(Team, { foreignKey: { name: 'schedule_id' } });
 //--i-am-not-sure-about-on-cascade
 Schedule.hasMany(ScheduleDetails, { foreignKey: { name: 'schedule_id', allowNull: false }, onDelete: 'CASCADE' } );
@@ -129,6 +144,7 @@ db.sync({ force: false })
     });
 
 module.exports = {
+    PersonalSchedules,
     Department,
     Schedule,
     Team,

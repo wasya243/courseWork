@@ -1,4 +1,4 @@
-const { Employee, InsOuts, db, ScheduleDetails, Schedule, Team, ScheduleExceptions } = require('../../db/models');
+const { Employee, InsOuts, db, ScheduleDetails, Schedule, Team, ScheduleExceptions, PersonalSchedules } = require('../../db/models');
 const {
     createRecord,
     getControlPoints,
@@ -105,36 +105,43 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
             }
         });
 
-        const team = await Team.find({
-            where: {
-                id: employee.team_id,
-            }
-        });
+        let team, schedule, scheduleDetails, scheduleExceptions, personalSchedule;
 
-        const schedule = await Schedule.find({
-            where: {
-                id: team.schedule_id,
-            }
-        });
-
-        let scheduleDetails = await ScheduleDetails.find({
-            where: {
-                schedule_id: schedule.id,
-                work_date: day,
-            }
-        });
-
-        const scheduleExceptions = await ScheduleExceptions.find({
-            where: {
-                employee_id: id,
-                schedule_details_id: scheduleDetails.id,
-                work_date: day,
-            }
-        });
+        if(employee.team_id) {
+            team = await Team.find({
+                where: {
+                    id: employee.team_id,
+                }
+            });
+            schedule = await Schedule.find({
+                where: {
+                    id: team.schedule_id,
+                }
+            });
+            scheduleDetails = await ScheduleDetails.find({
+                where: {
+                    schedule_id: schedule.id,
+                    work_date: day,
+                }
+            });
+            scheduleExceptions = await ScheduleExceptions.find({
+                where: {
+                    employee_id: id,
+                    schedule_details_id: scheduleDetails.id,
+                    work_date: day,
+                }
+            });
+        } else {
+            // find personal schedule
+        }
 
         // check if we found something
         if(scheduleExceptions) {
             scheduleDetails = scheduleExceptions;
+        }
+
+        if(personalSchedule) {
+            scheduleDetails = personalSchedule;
         }
 
         // all records during this day by given user
