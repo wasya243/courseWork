@@ -61,7 +61,7 @@ const teamListByDepartmentIdGet = async (req, res, next) => {
     try {
         const { id } = req.params;
         const listOfTeams = await Team.findAll({
-            where: { departmentId: id }
+            where: { department_id: id }
         });
         res.send(listOfTeams);
     } catch (error) {
