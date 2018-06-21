@@ -184,7 +184,7 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
 
         if(inOutRecords.length === 1) {
             result = getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule, true);
-            result = res.concat(getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule, false));
+            result = result.concat(getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule, false));
         } else {
             // a little bit of magic
             result = getReportByMultipleRecords(inOutRecords, getControlPoints, getRangeNameByTime, createRecord, remappedSchedule);
@@ -227,7 +227,7 @@ const employeeCurrentStatusGET = async (req, res, next) => {
         if(inOutRecords.length === 0) {
             status.message = 'Not At Work'
         } else {
-            const lastEntry = inOutRecords[0];
+            const lastEntry = inOutRecords[inOutRecords.length - 1];
             lastEntry.type === 'In'
                 ? status.message = 'At work'
                 : status.message = 'Not At Work';
