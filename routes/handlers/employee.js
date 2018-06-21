@@ -183,7 +183,8 @@ const employeeStatisticsByDayGET = async (req, res, next) => {
         let result = [];
 
         if(inOutRecords.length === 1) {
-            result = getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, remappedSchedule);
+            result = getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule, true);
+            result = res.concat(getReportBySingleRecord(inOutRecords[0], getControlPointsBySingleRecord, getRangeNameByTime, createRecord, schedule, false));
         } else {
             // a little bit of magic
             result = getReportByMultipleRecords(inOutRecords, getControlPoints, getRangeNameByTime, createRecord, remappedSchedule);
