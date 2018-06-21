@@ -9,6 +9,8 @@ const errorHandler = require('./lib');
 const PORT = 3000;
 //--------------------------------------->
 
+const swaggerSpec = require('./swagger');
+
 const app = express();
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -18,13 +20,14 @@ const router = express.Router();
 routes.applyRoutes(router);
 app.use('/api', router);
 
+app.get('/swagger.json', (req, res) => {
+   res.setHeader('Content--Type', 'application/json');
+   res.send(swaggerSpec);
+});
 
 app.use(errorHandler.notFoundMiddleware);
 app.use(errorHandler.errorMiddleware);
 
-app.get('*', (req, res) => res.status(200).send({
-    message: 'Welcome to the beginning of nothingness.',
-}));
 
 app.listen(PORT || 3000, () => {
     console.log(`App is listening on the port ${PORT || 3000}`)
